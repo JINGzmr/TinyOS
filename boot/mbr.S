@@ -95,7 +95,7 @@
 ;     db 0x55,0xaa
 
 
-; 第三版：MBR使用硬盘
+; 第三版
 ;主引导程序 
 %include "boot.inc"     ;nasm 编译器中的预处理指令,让编译器在编译之前把 boot.inc 文件包含进来
 SECTION MBR vstart=0x7c00         
@@ -135,7 +135,7 @@ SECTION MBR vstart=0x7c00
     ;下面三行为rd_disk_m_16 函数传递参数（用寄存器传递，这里用到eax、bx、cx 寄存器）
     mov eax,LOADER_START_SECTOR	    ; 待读入的起始扇区lba地址
     mov bx,LOADER_BASE_ADDR         ; 数据从硬盘读进来后，将其写入的内存地址
-    mov cx,1			            ; 待读入的扇区数，因为此时大小不会512字节，因此1扇区即可
+    mov cx,4			            ; 待读入的扇区数
 
     call rd_disk_m_16		        ; 调用函数 rd_disk_m_16 读取硬盘的一个扇区
   
