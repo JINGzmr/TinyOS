@@ -32,49 +32,70 @@ VIDEO_DESC:                                             ;---第三个：显存�
     SELECTOR_DATA equ (0x0002<<3) + TI_GDT + RPL0	    ; 同上
     SELECTOR_VIDEO equ (0x0003<<3) + TI_GDT + RPL0	    ; 同上 
 
-                                                        ;-------定义全局描述符表 GDT 的指针(用于 lgdt 加载 GDT 到 gdtr 寄存器)-----------
-gdt_ptr dw GDT_LIMIT                                    ;定义加载进入GDTR的数据，前2字节是gdt界限，后4字节是gdt起始地址，
-	    dd  GDT_BASE
-loadermsg db '2 loader in real.'
+    total_mem_bytes dd 0				                    ; 用于保存内存容量（以字节为单位），偏移 0x200 字节
 
-loader_start:
-                                                        ;------------------------------------------------------------
-                                                        ;INT 0x10    功能号:0x13    功能描述:打印字符串“2 loader in real.”
-                                                        ;------------------------------------------------------------                                                   
-    mov sp,LOADER_BASE_ADDR
-    mov	bp,loadermsg                                    
-    mov	cx,17			                                
-    mov	ax,0x1301		                                
-    mov	bx,0x001f		                                
-    mov	dx,0x1800		                                
-    int	0x10                                            
+    gdt_ptr dw GDT_LIMIT                                    ; 定义加载到 GDTR 的数据，前 2 字节是 GDT 界限
+            dd  GDT_BASE                                    ; 后 4 字节是 GDT 起始地址
 
-                                                        ;-----------------   准备进入保护模式   -----------------
-                                                        ;1 打开A20
-                                                        ;2 加载gdt
-                                                        ;3 将cr0的pe位置1
+    ards_buf times 244 db 0                                 ; 预留 244 字节的 ARDS 缓冲区
+    ards_nr dw 0		                                    ; 用于记录 ARDS 结构体数量
 
-                                                        ;-----------------  打开A20  ----------------
-    in al, 0x92
-    or al, 0000_0010B
-    out 0x92,al
+    loader_start:                                           ; 加载器的起始位置
+                                                            ;-------  int 15h eax = 0000E820h ,edx = 534D4150h ('SMAP') 获取内存布局  -------
 
-                                                        ;-----------------  加载GDT  ----------------
-    lgdt [gdt_ptr]
+    xor ebx, ebx		                                    ; 第一次调用时，ebx 值为 0
+    mov edx, 0x534d4150	                                    ; edx 赋值为 'SMAP' 标志
+    mov di, ards_buf	                                    ; di 指向 ARDS 缓冲区
+    .e820_mem_get_loop:	                                    ; 循环获取每个 ARDS 内存范围描述结构
+    mov eax, 0x0000e820	                                    ; 设置 E820 功能号
+    mov ecx, 20		                                        ; ARDS 结构大小是 20 字节
+    int 0x15                                                ; 调用 BIOS 中断 0x15 获取内存信息
+    add di, cx		                                        ; di 增加 20 字节，指向下一个 ARDS 结构位置
+    inc word [ards_nr]	                                    ; 增加 ARDS 数量
+    cmp ebx, 0		                                        ; 如果 ebx 为 0 且 cf 不为 1，则说明所有 ARDS 都已返回
+    jnz .e820_mem_get_loop                                  ; 如果 ebx 不为 0，则继续循环
 
+                                                            ; 在所有 ARDS 结构中，找出 (base_add_low + length_low) 的最大值，即内存容量
+    mov cx, [ards_nr]	                                    ; 将 ARDS 数量存入 cx
+    mov ebx, ards_buf                                       ; ebx 指向 ARDS 缓冲区
+    xor edx, edx		                                    ; edx 清零，用于保存最大内存容量
+    .find_max_mem_area:	                                    ; 遍历每一个 ARDS 结构体
+    mov eax, [ebx]	                                        ; 取出 base_add_low
+    add eax, [ebx+8]	                                    ; 加上 length_low，得到该段内存的结束地址
+    add ebx, 20		                                        ; 指向下一个 ARDS 结构
+    cmp edx, eax		                                    ; 比较 edx 和 eax，找出最大值(冒泡排序)
+    jge .next_ards                                          ; 如果 edx >= eax，则跳到 next_ards
+    mov edx, eax		                                    ; 如果 eax > edx，则将 edx 赋值为 eax
+    .next_ards:
+    loop .find_max_mem_area                                 ; 循环查找最大内存块
 
-                                                        ;-----------------  cr0第0位置1  ----------------
-    mov eax,cr0
-    or eax,0x00000001
-    mov cr0,eax
+    mov [total_mem_bytes], edx	                            ; 将最大内存容量存入 total_mem_bytes
 
-                                                        ;jmp dword SELECTOR_CODE:p_mode_start	    
-    jmp  SELECTOR_CODE:p_mode_start	                    ; 刷新流水线，避免分支预测的影响,这种cpu优化策略，最怕jmp跳转，
-					                                    ; 这将导致之前做的预测失效，从而起到了刷新的作用。
+    ;-----------------   准备进入保护模式   ------------------------------------------
+    ;1 打开 A20
+    ;2 加载 GDT
+    ;3 将 CR0 的 PE 位设为 1
+
+    ;-----------------  打开 A20  ----------------
+    in al, 0x92                                            ; 读取 0x92 端口的值到 al
+    or al, 0000_0010B                                      ; 设置 A20 位
+    out 0x92, al                                           ; 将值写回 0x92 端口
+
+    ;-----------------  加载 GDT  ----------------
+    lgdt [gdt_ptr]                                         ; 加载 GDT
+
+    ;-----------------  CR0 第 0 位设为 1  ----------------
+    mov eax, cr0                                           ; 读取 cr0 到 eax
+    or eax, 0x00000001                                     ; 设置 PE 位
+    mov cr0, eax                                           ; 写回 cr0
+
+    jmp SELECTOR_CODE:p_mode_start	                        ; 远跳转到保护模式代码段 p_mode_start
+
+    .error_hlt:		                                        ; 出错则挂起
+    hlt
 
 [bits 32]
 p_mode_start:
-                                                        ;---------用29行的选择子初始化成各段寄存器----------
     mov ax,SELECTOR_DATA
     mov ds,ax
     mov es,ax
@@ -86,3 +107,4 @@ p_mode_start:
     mov byte [gs:160], 'P'
 
     jmp $
+ 
