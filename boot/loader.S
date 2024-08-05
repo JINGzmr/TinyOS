@@ -39,7 +39,7 @@ loadermsg db '2 loader in real.'
 
 loader_start:
                                                         ;------------------------------------------------------------
-                                                        ;INT 0x10    功能号:0x13    功能描述:打印字符串
+                                                        ;INT 0x10    功能号:0x13    功能描述:打印字符串“2 loader in real.”
                                                         ;------------------------------------------------------------                                                   
     mov sp,LOADER_BASE_ADDR
     mov	bp,loadermsg                                    
@@ -74,7 +74,7 @@ loader_start:
 
 [bits 32]
 p_mode_start:
-                                                        ;---------用构29行的选择子初始化成各段寄存器----------
+                                                        ;---------用29行的选择子初始化成各段寄存器----------
     mov ax,SELECTOR_DATA
     mov ds,ax
     mov es,ax
