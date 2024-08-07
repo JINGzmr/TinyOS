@@ -4,6 +4,8 @@ LOADER_BASE_ADDR equ 0x900  ;相当于c语言的#define LOADER_BASE_ADDR 0x900
                             ;即将来 loader 会在内存地址 0x900 处
 LOADER_START_SECTOR equ 0x2 ;loader 程序在硬盘上的起始扇区
 
+PAGE_DIR_TABLE_POS equ 0x100000                     ;页目录表在内存中的起始位置——从1M开始的位置（把页目录表放置到物理内存 0x100000）
+
                                                     ;--------------   模块化的gdt描述符字段宏-------------
 DESC_G_4K   equ	  1_00000000000000000000000b        ;设置段界限的单位为4KB
 DESC_D_32   equ	   1_0000000000000000000000b        ;设置代码段/数据段的有效地址（段内偏移地址）及操作数大小为32位，而非16位
@@ -39,3 +41,10 @@ RPL2  equ   10b                                     ;定义选择字的RPL为2
 RPL3  equ   11b                                     ;定义选择子的RPL为3
 TI_GDT	 equ   000b                                 ;定义段选择子请求的段描述符是在GDT中
 TI_LDT	 equ   100b                                 ;定义段选择子请求的段描述符是在LDT中
+
+                                                    ;---------模块化的页目录表字段,PWT PCD A D G AVL 暂时不用设置   ----------
+PG_P  equ   1b
+PG_RW_R	 equ  00b 
+PG_RW_W	 equ  10b 
+PG_US_S	 equ  000b 
+PG_US_U	 equ  100b  
