@@ -139,8 +139,8 @@ SECTION MBR vstart=0x7c00
 
     call rd_disk_m_16		        ; 调用函数 rd_disk_m_16 读取硬盘的一个扇区
   
-    ; jmp LOADER_BASE_ADDR + 0x300           ; 跳转到 loader 的起始地址，执行 loader 程序
-    jmp LOADER_BASE_ADDR   
+    jmp LOADER_BASE_ADDR + 0x300           ; 跳转到 loader 的起始地址，执行 loader 程序
+
 
 ; 功能: 读取硬盘 n 个扇区的函数
 rd_disk_m_16:
