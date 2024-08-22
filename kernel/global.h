@@ -18,7 +18,7 @@
 #define SELECTOR_K_STACK   SELECTOR_K_DATA 
 #define SELECTOR_K_GS	   ((3 << 3) + (TI_GDT << 2) + RPL0)
 
-////定义模块化的中断门描述符attr字段，attr字段指的是中断门描述符高字第8到16bit
+//定义模块化的中断门描述符attr字段，attr字段指的是中断门描述符高字第8到16bit
 #define	 IDT_DESC_P 1 
 #define	 IDT_DESC_DPL0 0
 #define	 IDT_DESC_DPL3 3

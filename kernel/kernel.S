@@ -1,10 +1,9 @@
 [bits 32]
 %define ERROR_CODE nop		                ; 有些中断进入前CPU会自动压入错误码（32位）,为保持栈中格式统一,这里不做操作.
 %define ZERO push 0		                    ; 有些中断进入前CPU不会压入错误码，对于这类中断，我们为了与前一类中断统一管理，就自己压入32位的0
-extern put_str			                    ;声明外部函数，为的是调用put_str
+extern idt_table		                    ;idt_table是C中注册的中断处理程序数组
 
 section .data
-intr_str db "interrupt occur!", 0xa, 0      ;第二个是一个换行符，第三个定义一个ascii码为0的字符，用来表示字符串的结尾
 global intr_entry_table
 intr_entry_table:                           ;编译器会将之后所有同属性的section合成一个大的segment，所以这个标号后面会聚集所有的中断处理程序的地址
 
@@ -12,21 +11,38 @@ intr_entry_table:                           ;编译器会将之后所有同属�
 section .text                               ;中断处理函数的代码段
 intr%1entry:		                        ; 每个中断处理程序都要压入中断向量号,所以一个中断类型一个中断处理程序，自己知道自己的中断向量号是多少,此标号来表示中断处理程序的入口
     %2                                      ;这一步是根据宏传入参数的变化而变化的
-    push intr_str
-    call put_str
-    add esp,4			                    ; 抛弃调用put_str压入的字符串地址参数
+                                    
+    push ds                                 ; 以下是保存上下文环境
+    push es
+    push fs
+    push gs
+    pushad
 
                                             ; 如果是从片上进入的中断,除了往从片上发送EOI外,还要往主片上发送EOI 
     mov al,0x20                             ; 中断结束命令EOI
     out 0xa0,al                             ;向主片发送OCW2,其中EOI位为1，告知结束中断，详见书p317
     out 0x20,al                             ;向从片发送OCW2,其中EOI位为1，告知结束中断
 
-    add esp,4			                    ;对于会压入错误码的中断会抛弃错误码（这个错误码是执行中断处理函数之前CPU自动压入的），对于不会压入错误码的中断，就会抛弃上面push的0
-    iret				                    ; 从中断返回,32位下等同指令iretd
+    push %1			                        ; 不管idt_table中的目标程序是否需要参数,都一律压入中断向量号,调试时很方便
+    call [idt_table + %1*4]                 ; 调用idt_table中的C版本中断处理函数
+    jmp intr_exit
 
 section .data                               ;这个段就是存的此中断处理函数的地址
     dd    intr%1entry	                    ; 存储各个中断入口程序的地址，形成intr_entry_table数组,定义的地址是4字节，32位
 %endmacro
+
+section .text
+global intr_exit
+intr_exit:	     
+                                            ; 以下是恢复上下文环境
+    add esp, 4			                    ; 跳过中断号
+    popad
+    pop gs
+    pop fs
+    pop es
+    pop ds
+    add esp, 4			                    ;对于会压入错误码的中断会抛弃错误码（这个错误码是执行中断处理函数之前CPU自动压入的），对于不会压入错误码的中断，就会抛弃上面push的0                    
+    iretd				                    ; 从中断返回,32位下iret等同指令iretd
 
 VECTOR 0x00,ZERO                            ;调用之前写好的宏来批量生成中断处理函数，传入参数是中断号码与上面中断宏的%2步骤，这个步骤是什么都不做，还是压入0看p303
 VECTOR 0x01,ZERO

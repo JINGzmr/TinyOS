@@ -28,7 +28,8 @@ static struct gate_desc idt[IDT_DESC_CNT];   //中断门描述符（结构体）
 
 extern intr_handler intr_entry_table[IDT_DESC_CNT];	    //引入kernel.s中定义好的中断处理函数地址数组，intr_handler就是void* 表明是一般地址类型
 
-
+char* intr_name[IDT_DESC_CNT];		         //存储中断/异常的名字
+intr_handler idt_table[IDT_DESC_CNT];	     // 定义中断处理程序数组.在kernel.S中定义的intrXXentry只是中断处理程序的入口,最终调用的是ide_table中的处理程序
 
 /* 初始化可编程中断控制器8259A */
 static void pic_init(void) {
@@ -72,11 +73,55 @@ static void idt_desc_init(void) {
    put_str("   idt_desc_init done\n");
 }
 
+/* 通用的中断处理函数,用于初始化,一般用在异常出现时的处理 */
+static void general_intr_handler(uint8_t vec_nr) {
+   if (vec_nr == 0x27 || vec_nr == 0x2f) {	//伪中断向量，无需处理。详见书p337
+      return;		
+   }
+   put_str("int vector: 0x");
+   put_int(vec_nr);
+   put_char('\n');
+}
+
+/* 完成一般中断处理函数注册及异常名称注册 */
+static void exception_init(void) {			    // 完成一般中断处理函数注册及异常名称注册
+   int i;
+   for (i = 0; i < IDT_DESC_CNT; i++) {
+
+/* idt_table数组中的函数是在进入中断后根据中断向量号调用的,
+ * 见kernel/kernel.S的call [idt_table + %1*4] */
+      idt_table[i] = general_intr_handler;		    // 默认为general_intr_handler。
+							    // 以后会由register_handler来注册具体处理函数。
+      intr_name[i] = "unknown";				    // 先统一赋值为unknown 
+   }
+   intr_name[0] = "#DE Divide Error";
+   intr_name[1] = "#DB Debug Exception";
+   intr_name[2] = "NMI Interrupt";
+   intr_name[3] = "#BP Breakpoint Exception";
+   intr_name[4] = "#OF Overflow Exception";
+   intr_name[5] = "#BR BOUND Range Exceeded Exception";
+   intr_name[6] = "#UD Invalid Opcode Exception";
+   intr_name[7] = "#NM Device Not Available Exception";
+   intr_name[8] = "#DF Double Fault Exception";
+   intr_name[9] = "Coprocessor Segment Overrun";
+   intr_name[10] = "#TS Invalid TSS Exception";
+   intr_name[11] = "#NP Segment Not Present";
+   intr_name[12] = "#SS Stack Fault Exception";
+   intr_name[13] = "#GP General Protection Exception";
+   intr_name[14] = "#PF Page-Fault Exception";
+   // intr_name[15] 第15项是intel保留项，未使用
+   intr_name[16] = "#MF x87 FPU Floating-Point Error";
+   intr_name[17] = "#AC Alignment Check Exception";
+   intr_name[18] = "#MC Machine-Check Exception";
+   intr_name[19] = "#XF SIMD Floating-Point Exception";
+}
+
 
 /*完成有关中断的所有初始化工作*/
 void idt_init() {
    put_str("idt_init start\n");
    idt_desc_init();	   //调用上面写好的函数完成中段描述符表的构建
+   exception_init();	   // 异常名初始化并注册通常的中断处理函数
    pic_init();		  //设定化中断控制器，只接受来自时钟中断的信号
 
    /* 加载idt */
@@ -84,4 +129,3 @@ void idt_init() {
    asm volatile("lidt %0" : : "m" (idt_operand));
    put_str("idt_init done\n");
 }
-
