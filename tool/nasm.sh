@@ -59,14 +59,21 @@ if [ $? -ne 0 ]; then
 fi
 
 # 编译 init
-gcc -m32 -I lib/kernel/ -I lib/ -I kernel/ -c -fno-builtin -fno-stack-protector -o build/init.o kernel/init.c
+gcc -m32 -I lib/kernel/ -I lib/ -I kernel/ -I device/ -c -fno-builtin -fno-stack-protector -o build/init.o kernel/init.c
 if [ $? -ne 0 ]; then
     echo "Error: Failed to compile init"
     exit 1
 fi
 
+# 编译 timer
+gcc -m32 -I lib/kernel/ -I lib/ -I kernel/ -I device/ -c -fno-builtin -fno-stack-protector -o build/timer.o device/timer.c
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to compile timer"
+    exit 1
+fi
+
 # 链接成内核
-ld -m elf_i386 -Ttext 0x00001500 -e main -o build/kernel.bin build/main.o build/kernel.o build/init.o build/interrput.o build/print.o
+ld -m elf_i386 -Ttext 0x00001500 -e main -o build/kernel.bin build/main.o build/kernel.o build/init.o build/interrput.o build/print.o build/timer.o
 if [ $? -ne 0 ]; then
     echo "Error: Failed to link kernel"
     exit 1
