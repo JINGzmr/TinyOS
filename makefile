@@ -6,7 +6,7 @@ HD60M_PATH=/home/ZMR/Desktop/bochs/hd60M.img
 AS=nasm
 CC=gcc
 LD=ld
-LIB= -I lib/ -I lib/kernel/ -I lib/user/ -I kernel/ -I device/
+LIB= -I lib/ -I lib/kernel/ -I lib/user/ -I kernel/ -I device/ -I thread/
 ASFLAGS= -f elf
 CFLAGS= -Wall $(LIB) -c -fno-builtin -fno-stack-protector -W -Wstrict-prototypes -Wmissing-prototypes -m32
 #-Wall warning all的意思，产生尽可能多警告信息，-fno-builtin不要采用内部函数，
@@ -20,7 +20,7 @@ LDFLAGS= -Ttext $(ENTRY_POINT) -e main -Map $(BUILD_DIR)/kernel.map -m elf_i386
 OBJS=$(BUILD_DIR)/main.o $(BUILD_DIR)/init.o \
 	$(BUILD_DIR)/interrupt.o $(BUILD_DIR)/timer.o $(BUILD_DIR)/kernel.o \
 	$(BUILD_DIR)/print.o $(BUILD_DIR)/debug.o $(BUILD_DIR)/string.o $(BUILD_DIR)/bitmap.o \
-	$(BUILD_DIR)/memory.o
+	$(BUILD_DIR)/memory.o $(BUILD_DIR)/thread.o
 #顺序最好是调用在前，实现在后
 
 ######################编译两个启动文件的代码#####################################
@@ -57,6 +57,8 @@ $(BUILD_DIR)/bitmap.o:lib/kernel/bitmap.c
 $(BUILD_DIR)/memory.o:kernel/memory.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+$(BUILD_DIR)/thread.o:thread/thread.c
+	$(CC) $(CFLAGS) -o $@ $<
 ###################编译汇编内核代码#####################################################
 $(BUILD_DIR)/kernel.o:kernel/kernel.S 
 	$(AS) $(ASFLAGS) -o $@ $<
