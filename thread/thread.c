@@ -140,3 +140,29 @@ void thread_init(void) {
    make_main_thread();
    put_str("thread_init done\n");
 }
+
+//将当前正在运行的线程pcb中的状态字段设定为传入的status,一般用于线程主动设定阻塞
+void thread_block(enum task_status stat) {
+/* stat取值为TASK_BLOCKED,TASK_WAITING,TASK_HANGING,也就是只有这三种状态才不会被调度*/
+   ASSERT(((stat == TASK_BLOCKED) || (stat == TASK_WAITING) || (stat == TASK_HANGING)));
+   enum intr_status old_status = intr_disable();       //先关闭中断,因为涉及要修改阻塞队列，调度
+   struct task_struct* cur_thread = running_thread();    //得到当前正在运行的进程的pcb地址
+   cur_thread->status = stat; // 置其状态为stat 
+   schedule();		      // 将当前线程换下处理器
+/* 待当前线程被解除阻塞后才继续运行下面的intr_set_status */
+   intr_set_status(old_status);
+}
+/* 将线程pthread解除阻塞 */
+void thread_unblock(struct task_struct* pthread) {
+   enum intr_status old_status = intr_disable();      //涉及队就绪队列的修改，此时绝对不能被切换走
+   ASSERT(((pthread->status == TASK_BLOCKED) || (pthread->status == TASK_WAITING) || (pthread->status == TASK_HANGING)));
+   if (pthread->status != TASK_READY) {
+      ASSERT(!elem_find(&thread_ready_list, &pthread->general_tag));
+      if (elem_find(&thread_ready_list, &pthread->general_tag)) {
+	      PANIC("thread_unblock: blocked thread in ready_list\n");
+      }
+      list_push(&thread_ready_list, &pthread->general_tag);    // 放到队列的最前面,使其尽快得到调度
+      pthread->status = TASK_READY;
+   } 
+   intr_set_status(old_status);
+}

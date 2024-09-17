@@ -9,8 +9,8 @@ int main(void) {
    put_str("I am kernel\n");
    init_all();
     int i = 9999999;
-   thread_start("k_thread_a", 31, k_thread_a, "argA ");
-   thread_start("k_thread_b", 31, k_thread_b, "argB ");
+   thread_start("k_thread_a", 60, k_thread_a, "argA ");
+   thread_start("k_thread_b", 10, k_thread_b, "argB ");
 
    intr_enable();	// 打开中断,使时钟中断起作用
     while(1)
@@ -53,4 +53,3 @@ void k_thread_b(void* arg) {
         intr_enable();
     }
 }
-
