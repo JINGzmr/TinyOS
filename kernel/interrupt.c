@@ -55,7 +55,11 @@ static void pic_init(void) {
    //outb (PIC_S_DATA, 0xff);
 
    /* 测试键盘,只打开键盘中断，其它全部关闭 */
-   outb (PIC_M_DATA, 0xfd);   //键盘中断在主片ir1引脚上，所以将这个引脚置0，就打开了
+   //outb (PIC_M_DATA, 0xfd);   //键盘中断在主片ir1引脚上，所以将这个引脚置0，就打开了
+   //outb (PIC_S_DATA, 0xff);
+
+   //同时打开时钟中断与键盘中断
+   outb (PIC_M_DATA, 0xfc);
    outb (PIC_S_DATA, 0xff);
 
    put_str("   pic_init done\n");

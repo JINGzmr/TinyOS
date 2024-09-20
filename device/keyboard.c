@@ -3,6 +3,7 @@
 #include "interrupt.h"
 #include "io.h"
 #include "global.h"
+#include "ioqueue.h"
 
 #define KBD_BUF_PORT 0x60   //键盘buffer寄存器端口号为0x60
 
@@ -103,6 +104,8 @@ int alt_status = 0;         //用于记录是否按下alt键
 int caps_lock_status = 0;   //用于记录是否按下大写锁定
 int ext_scancode = 0;       //用于记录是否是扩展码
 
+struct ioqueue kbd_buf;	   // 定义键盘缓冲区
+
 static void intr_keyboard_handler(void)
 {
     int break_code;     //用于判断传入值是否是断码
@@ -178,9 +181,22 @@ static void intr_keyboard_handler(void)
 			if(shift_status + caps_lock_status == 1)
             	shift = 1;   //shift和大写锁定，那么判断是否按下了一个，而且不能是同时按下，那么就能确定是要开启shift
       	}
-
-		put_char(keymap[index][shift]); //打印字符
-	    return;
+        char cur_char = keymap[index][shift];
+        if (cur_char) {
+            /*****************  快捷键ctrl+l和ctrl+u的处理 *********************
+             * 下面是把ctrl+l和ctrl+u这两种组合键产生的字符置为:
+             * cur_char的asc码-字符a的asc码, 此差值比较小,
+             * 属于asc码表中不可见的字符部分.故不会产生可见字符.
+             * 我们在shell中将ascii值为l-a和u-a的分别处理为清屏和删除输入的快捷键*/
+	        if ((ctrl_status && cur_char == 'l') || (ctrl_status && cur_char == 'u')) {
+	            cur_char -= 'a';
+	        }
+            if (!ioq_full(&kbd_buf)) {
+                put_char(cur_char);	    // 临时的
+                ioq_putchar(&kbd_buf, cur_char);
+            }
+	        return;
+        }
     }
     else 
 		put_str("unknown key\n");
@@ -190,6 +206,7 @@ static void intr_keyboard_handler(void)
 /* 键盘初始化 */
 void keyboard_init() {
    put_str("keyboard init start\n");
+   ioqueue_init(&kbd_buf);
    register_handler(0x21, intr_keyboard_handler);
    put_str("keyboard init done\n");
 }
