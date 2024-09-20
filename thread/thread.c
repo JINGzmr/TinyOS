@@ -154,7 +154,7 @@ void thread_block(enum task_status stat) {
 }
 /* 将线程pthread解除阻塞 */
 void thread_unblock(struct task_struct* pthread) {
-   enum intr_status old_status = intr_disable();      //涉及队就绪队列的修改，此时绝对不能被切换走
+   enum intr_status old_status = intr_disable();      //涉及对就绪队列的修改，此时绝对不能被切换走
    ASSERT(((pthread->status == TASK_BLOCKED) || (pthread->status == TASK_WAITING) || (pthread->status == TASK_HANGING)));
    if (pthread->status != TASK_READY) {
       ASSERT(!elem_find(&thread_ready_list, &pthread->general_tag));

@@ -13,4 +13,5 @@ void init_all() {
    thread_init(); // 初始化线程相关结构
    timer_init();  
    console_init();
+   keyboard_init();
 }
