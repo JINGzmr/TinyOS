@@ -7,6 +7,7 @@
 #include "debug.h"
 #include "interrupt.h"
 #include "print.h"
+#include "process.h"
 
 #define PG_SIZE 4096
 
@@ -73,6 +74,7 @@ void init_thread(struct task_struct* pthread, char* name, int prio) {
                                                                         //+4096的地方，这样就留了一页给线程的信息（包含管理信息与运行信息）空间
    pthread->stack_magic = 0x19870916;	                                // /定义的边界数字，随便选的数字来判断线程的栈是否已经生长到覆盖pcb信息了              
 }
+
 /* 创建一优先级为prio的线程,线程名为name,线程所执行的函数是function(func_arg) */
 struct task_struct* thread_start(char* name, int prio, thread_func function, void* func_arg) {
 /* pcb都位于内核空间,包括用户进程的pcb也是在内核空间 */
@@ -116,8 +118,8 @@ void schedule() {
       list_append(&thread_ready_list, &cur->general_tag);
       cur->ticks = cur->priority;     // 重新将当前线程的ticks再重置为其priority;
       cur->status = TASK_READY;
-   }
-   else {
+   } 
+   else { 
       /* 若此线程需要某事件发生后才能继续上cpu运行,
       不需要将其加入队列,因为当前线程不在就绪队列中。*/
    }
@@ -128,6 +130,7 @@ void schedule() {
    thread_tag = list_pop(&thread_ready_list);   
    struct task_struct* next = elem2entry(struct task_struct, general_tag, thread_tag);
    next->status = TASK_RUNNING;
+   process_activate(next); //激活任务页表
    switch_to(cur, next);   
 }
 
@@ -154,7 +157,7 @@ void thread_block(enum task_status stat) {
 }
 /* 将线程pthread解除阻塞 */
 void thread_unblock(struct task_struct* pthread) {
-   enum intr_status old_status = intr_disable();      //涉及对就绪队列的修改，此时绝对不能被切换走
+   enum intr_status old_status = intr_disable();      //涉及队就绪队列的修改，此时绝对不能被切换走
    ASSERT(((pthread->status == TASK_BLOCKED) || (pthread->status == TASK_WAITING) || (pthread->status == TASK_HANGING)));
    if (pthread->status != TASK_READY) {
       ASSERT(!elem_find(&thread_ready_list, &pthread->general_tag));
